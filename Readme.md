@@ -10,6 +10,129 @@ A flexible data fetching library for Next.js applications that supports multiple
 - 🔌 Pluggable fetcher system with a central registry
 - 📱 TypeScript support for type safety
 
+## Data Fetching Flow
+
+### Sequence Diagram
+```mermaid
+sequenceDiagram
+    participant User
+    participant NextApp as Next.js App
+    participant HOC as withClientFetching/withServerFetching
+    participant Registry as FetcherRegistry
+    participant Fetcher as Custom Fetcher
+    participant API as API Route
+    participant DataSource as Data Files/External API
+    
+    User->>NextApp: Visit page
+    NextApp->>Registry: Initialize registry
+    NextApp->>Registry: Register fetchers
+    NextApp->>HOC: Render component with HOC
+    
+    alt Server-side Fetching
+        HOC->>Registry: Get fetcher instance
+        Registry->>HOC: Return fetcher
+        HOC->>Fetcher: fetchData(isServer=true)
+        Fetcher->>API: Fetch from server API
+        API->>DataSource: Read data file/external API
+        DataSource->>API: Return raw data
+        API->>Fetcher: Return formatted data
+    else Client-side Fetching
+        HOC->>Registry: Get fetcher instance
+        Registry->>HOC: Return fetcher
+        HOC->>Fetcher: fetchData(isServer=false)
+        Fetcher->>API: Browser fetch to API route
+        API->>DataSource: Read data file/external API
+        DataSource->>API: Return raw data
+        API->>Fetcher: Return formatted data
+    end
+    
+    Fetcher->>Fetcher: parseData()
+    Fetcher->>HOC: Return parsed data
+    HOC->>NextApp: Render component with data
+    NextApp->>User: Display data
+    
+    User->>NextApp: Toggle data source/mode
+    NextApp->>Registry: Update fetcher
+    NextApp->>HOC: Re-render with new fetcher
+    
+    Note over HOC,Fetcher: Data fetching process repeats
+```
+
+### Component Structure
+```mermaid
+graph TD
+    subgraph "Client-Side Components"
+        App[Next.js App]
+        Page[Page Component]
+        ClientComp[Client Component]
+        ServerComp[Server Component]
+        ClientHOC[withClientFetching HOC]
+        ServerHOC[withServerFetching HOC]
+    end
+    
+    subgraph "Core Library"
+        Registry[FetcherRegistry]
+        BaseFetcher[BaseFetcher]
+        CustomFetcher[Custom Data Fetcher]
+        Toggle[Toggle Component]
+        ListRenderer[ListRenderer Component]
+    end
+    
+    subgraph "Server-Side Components"
+        APIRoute[API Route]
+        Middleware[CORS Middleware]
+    end
+    
+    subgraph "Data Sources"
+        JSONFile[(JSON Files)]
+        CSVFile[(CSV Files)]
+        TXTFile[(TXT Files)]
+        ExternalAPI[(External API)]
+    end
+    
+    %% Client-side flow
+    App --> Page
+    Page --> ClientComp
+    Page --> ServerComp
+    ClientComp --> ClientHOC
+    ServerComp --> ServerHOC
+    
+    %% Core library connections
+    ClientHOC --> Registry
+    ServerHOC --> Registry
+    Registry --> CustomFetcher
+    CustomFetcher --> BaseFetcher
+    
+    %% Server-side flow
+    ClientHOC -.-> |Client-side fetch| Middleware
+    ServerHOC -.-> |Server-side fetch| Middleware
+    Middleware --> APIRoute
+    
+    %% Data source connections
+    APIRoute --> JSONFile
+    APIRoute --> CSVFile
+    APIRoute --> TXTFile
+    CustomFetcher -.-> |API Fetch| ExternalAPI
+    
+    %% UI Components
+    Page --> Toggle
+    ClientHOC --> ListRenderer
+    ServerHOC --> ListRenderer
+    
+    %% Styling
+    classDef core fill:#f9f,stroke:#333,stroke-width:2px
+    classDef component fill:#bbf,stroke:#333,stroke-width:1px
+    classDef server fill:#bfb,stroke:#333,stroke-width:1px
+    classDef data fill:#fbb,stroke:#333,stroke-width:1px
+    
+    class Registry,BaseFetcher,CustomFetcher core
+    class App,Page,ClientComp,ServerComp,ClientHOC,ServerHOC,Toggle,ListRenderer component
+    class APIRoute,Middleware server
+    class JSONFile,CSVFile,TXTFile,ExternalAPI data
+```
+
+
+
 ## Installation
 
 ```bash
@@ -408,123 +531,7 @@ function withServerFetching<T, P extends { data?: T[] }>(
   componentId: string
 ): React.FC<Omit<P, "data">>;
 ```
-## Architecture Diagram
-graph TD
-    subgraph "Client-Side Components"
-        App[Next.js App]
-        Page[Page Component]
-        ClientComp[Client Component]
-        ServerComp[Server Component]
-        ClientHOC[withClientFetching HOC]
-        ServerHOC[withServerFetching HOC]
-    end
-    
-    subgraph "Core Library"
-        Registry[FetcherRegistry]
-        BaseFetcher[BaseFetcher]
-        CustomFetcher[Custom Data Fetcher]
-        Toggle[Toggle Component]
-        ListRenderer[ListRenderer Component]
-    end
-    
-    subgraph "Server-Side Components"
-        APIRoute[API Route]
-        Middleware[CORS Middleware]
-    end
-    
-    subgraph "Data Sources"
-        JSONFile[(JSON Files)]
-        CSVFile[(CSV Files)]
-        TXTFile[(TXT Files)]
-        ExternalAPI[(External API)]
-    end
-    
-    %% Client-side flow
-    App --> Page
-    Page --> ClientComp
-    Page --> ServerComp
-    ClientComp --> ClientHOC
-    ServerComp --> ServerHOC
-    
-    %% Core library connections
-    ClientHOC --> Registry
-    ServerHOC --> Registry
-    Registry --> CustomFetcher
-    CustomFetcher --> BaseFetcher
-    
-    %% Server-side flow
-    ClientHOC -.-> |Client-side fetch| Middleware
-    ServerHOC -.-> |Server-side fetch| Middleware
-    Middleware --> APIRoute
-    
-    %% Data source connections
-    APIRoute --> JSONFile
-    APIRoute --> CSVFile
-    APIRoute --> TXTFile
-    CustomFetcher -.-> |API Fetch| ExternalAPI
-    
-    %% UI Components
-    Page --> Toggle
-    ClientHOC --> ListRenderer
-    ServerHOC --> ListRenderer
-    
-    %% Styling
-    classDef core fill:#f9f,stroke:#333,stroke-width:2px
-    classDef component fill:#bbf,stroke:#333,stroke-width:1px
-    classDef server fill:#bfb,stroke:#333,stroke-width:1px
-    classDef data fill:#fbb,stroke:#333,stroke-width:1px
-    
-    class Registry,BaseFetcher,CustomFetcher core
-    class App,Page,ClientComp,ServerComp,ClientHOC,ServerHOC,Toggle,ListRenderer component
-    class APIRoute,Middleware server
-    class JSONFile,CSVFile,TXTFile,ExternalAPI data
 
-
-## Data Fetcher Sequence Diagram
-
-sequenceDiagram
-    participant User
-    participant NextApp as Next.js App
-    participant HOC as withClientFetching/withServerFetching
-    participant Registry as FetcherRegistry
-    participant Fetcher as Custom Fetcher
-    participant API as API Route
-    participant DataSource as Data Files/External API
-    
-    User->>NextApp: Visit page
-    NextApp->>Registry: Initialize registry
-    NextApp->>Registry: Register fetchers
-    NextApp->>HOC: Render component with HOC
-    
-    alt Server-side Fetching
-        HOC->>Registry: Get fetcher instance
-        Registry->>HOC: Return fetcher
-        HOC->>Fetcher: fetchData(isServer=true)
-        Fetcher->>API: Fetch from server API
-        API->>DataSource: Read data file/external API
-        DataSource->>API: Return raw data
-        API->>Fetcher: Return formatted data
-    else Client-side Fetching
-        HOC->>Registry: Get fetcher instance
-        Registry->>HOC: Return fetcher
-        HOC->>Fetcher: fetchData(isServer=false)
-        Fetcher->>API: Browser fetch to API route
-        API->>DataSource: Read data file/external API
-        DataSource->>API: Return raw data
-        API->>Fetcher: Return formatted data
-    end
-    
-    Fetcher->>Fetcher: parseData()
-    Fetcher->>HOC: Return parsed data
-    HOC->>NextApp: Render component with data
-    NextApp->>User: Display data
-    
-    User->>NextApp: Toggle data source/mode
-    NextApp->>Registry: Update fetcher
-    NextApp->>HOC: Re-render with new fetcher
-    
-    Note over HOC,Fetcher: Data fetching process repeats
-    
 ### UI Components
 
 #### ListRenderer
