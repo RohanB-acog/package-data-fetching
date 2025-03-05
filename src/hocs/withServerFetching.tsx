@@ -1,56 +1,71 @@
-import React from "react"
+import type React from "react"
 import { FetcherRegistry } from "../core/FetcherRegistry"
+
+export interface WithServerFetchingOptions {
+  defaultItemsPerPage?: number
+  loadingComponent?: React.ReactNode
+  errorComponent?: React.ReactNode
+}
 
 export function withServerFetching<T, P extends { data?: T[] }>(
   WrappedComponent: React.ComponentType<P>,
   componentId: string,
+  options: WithServerFetchingOptions = {},
 ) {
-  return function WithServerFetching(props: Omit<P, "data">) {
-    const [data, setData] = React.useState<T[]>([])
-    const [loading, setLoading] = React.useState<boolean>(true)
-    const [error, setError] = React.useState<string | null>(null)
+  // Use a more descriptive component name for better debugging
+  const displayName = WrappedComponent.displayName || WrappedComponent.name || "Component"
 
-    React.useEffect(() => {
-      const fetchData = async () => {
-        setLoading(true)
-        setError(null)
+  const {
+    defaultItemsPerPage = 10,
+    loadingComponent = <div>Loading data...</div>,
+    errorComponent = (error: string) => <div>Error: {error}</div>,
+  } = options
 
-        try {
-          // Get the registry instance
-          const registry = FetcherRegistry.getInstance()
-          
-          // Get API base URL from environment (or server URL for absolute path construction)
-          const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL
-          
-          // Set base path directly if available
-          if (apiBaseUrl) {
-            registry.setApiBasePath('/api/data')
-            registry.setBaseUrl(apiBaseUrl)
-          }
-          
-          const fetcher = registry.getFetcher(componentId)
+  async function ServerComponent(props: Omit<P, "data">) {
+    console.log(`Server-side fetching for: ${componentId}`)
 
-          if (!fetcher) {
-            throw new Error(`No fetcher registered for component: ${componentId}`)
-          }
+    try {
+      const registry = FetcherRegistry.getInstance()
+      const fetcher = registry.getFetcher(componentId)
 
-          // Explicitly pass server flag to true and the component ID
-          const result = await fetcher.fetchData(true, componentId)
-          setData(result)
-        } catch (err: any) {
-          console.error("Server fetching error:", err)
-          setError(err.message || "Failed to fetch")
-        } finally {
-          setLoading(false)
-        }
+      if (!fetcher) {
+        throw new Error(`No fetcher registered for component: ${componentId}`)
       }
 
-      fetchData()
-    }, [componentId])
+      // Set pagination for server-side (default values)
+      fetcher.setPagination(1, defaultItemsPerPage, true)
 
-    if (loading) return <div>Loading data...</div>
-    if (error) return <div>Error: {error}</div>
+      // Fetch data from the server
+      const result = await fetcher.fetchData(true)
 
-    return <WrappedComponent {...(props as P)} data={data} />
+      // Add pagination props to the wrapped component
+      const enhancedProps = {
+        ...(props as P),
+        data: result.data,
+        pagination: {
+          currentPage: 1,
+          totalPages: result.totalPages || Math.ceil(result.data.length / defaultItemsPerPage),
+          totalItems: result.totalItems || result.data.length,
+          itemsPerPage: defaultItemsPerPage,
+        },
+      }
+
+      return <WrappedComponent {...enhancedProps} />
+    } catch (error: any) {
+      console.error("Server fetching error:", error)
+      return (
+        <>
+          {typeof errorComponent === "function"
+            ? errorComponent(error.message || "Unknown error occurred")
+            : errorComponent}
+        </>
+      )
+    }
   }
+
+  // Set a display name for better debugging
+  ServerComponent.displayName = `withServerFetching(${displayName})`
+
+  return ServerComponent
 }
+

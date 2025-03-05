@@ -4,11 +4,11 @@ export class FetcherRegistry {
   private static instance: FetcherRegistry
   private fetchers: Map<string, BaseFetcher<any>>
   private apiBasePath = "/api/data"
-  private baseUrl: string = 
-    typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE_URL 
-      ? process.env.NEXT_PUBLIC_API_BASE_URL 
-      : typeof window !== "undefined" 
-        ? window.location.origin 
+  private baseUrl: string =
+    typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE_URL
+      ? process.env.NEXT_PUBLIC_API_BASE_URL
+      : typeof window !== "undefined"
+        ? window.location.origin
         : "http://localhost:3000"
 
   private constructor() {
@@ -40,7 +40,7 @@ export class FetcherRegistry {
 
   public setBaseUrl(url: string): void {
     // Ensure the URL doesn't end with a slash
-    this.baseUrl = url.endsWith('/') ? url.slice(0, -1) : url
+    this.baseUrl = url.endsWith("/") ? url.slice(0, -1) : url
   }
 
   public getBaseUrl(): string {
@@ -48,13 +48,14 @@ export class FetcherRegistry {
   }
 
   // Method to handle URL construction
-  public getDataUrl(componentId: string, dataSource: DataSourceType = "json", isServer: boolean = false): string {
+  public getDataUrl(componentId: string, dataSource: DataSourceType = "json", isServer = false): string {
     // For server-side fetching, use the full URL
     if (isServer) {
       return `${this.baseUrl}${this.apiBasePath}?component=${componentId}&dataSource=${dataSource}`
     }
-    
+
     // For client-side, relative URL is fine
     return `${this.apiBasePath}?component=${componentId}&dataSource=${dataSource}`
   }
 }
+

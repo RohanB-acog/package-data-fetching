@@ -1,6 +1,6 @@
 import type React from "react"
 
-interface ListRendererProps<T> {
+export interface ListRendererProps<T> {
   data: T[]
   renderItem: (item: T, index: number) => React.ReactNode
   title: string
