@@ -1,141 +1,26 @@
-# Next Data Fetcher
+### next-data-fetcher
 
-A flexible data fetching library for Next.js applications that supports multiple data sources and both client-side and server-side data fetching. This package simplifies the process of fetching and displaying data in your Next.js application.
+A powerful and flexible data fetching library for Next.js applications, supporting both client and server components with built-in caching, pagination, and real-time updates.
+
+[![npm version](https://img.shields.io/npm/v/next-data-fetcher)](https://www.npmjs.com/package/next-data-fetcher)  
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
 
 ## Features
 
-- 🔄 Seamless switching between server-side and client-side data fetching
-- 📊 Support for multiple data sources: JSON, CSV, TXT, and APIs
-- 🧩 Component-based architecture with HOCs for easy integration
-- 🔌 Pluggable fetcher system with a central registry
-- 📱 TypeScript support for type safety
-
-## Data Fetching Flow
-
-### Sequence Diagram
-```mermaid
-sequenceDiagram
-    participant User
-    participant NextApp as Next.js App
-    participant HOC as withClientFetching/withServerFetching
-    participant Registry as FetcherRegistry
-    participant Fetcher as Custom Fetcher
-    participant API as API Route
-    participant DataSource as Data Files/External API
-    
-    User->>NextApp: Visit page
-    NextApp->>Registry: Initialize registry
-    NextApp->>Registry: Register fetchers
-    NextApp->>HOC: Render component with HOC
-    
-    alt Server-side Fetching
-        HOC->>Registry: Get fetcher instance
-        Registry->>HOC: Return fetcher
-        HOC->>Fetcher: fetchData(isServer=true)
-        Fetcher->>API: Fetch from server API
-        API->>DataSource: Read data file/external API
-        DataSource->>API: Return raw data
-        API->>Fetcher: Return formatted data
-    else Client-side Fetching
-        HOC->>Registry: Get fetcher instance
-        Registry->>HOC: Return fetcher
-        HOC->>Fetcher: fetchData(isServer=false)
-        Fetcher->>API: Browser fetch to API route
-        API->>DataSource: Read data file/external API
-        DataSource->>API: Return raw data
-        API->>Fetcher: Return formatted data
-    end
-    
-    Fetcher->>Fetcher: parseData()
-    Fetcher->>HOC: Return parsed data
-    HOC->>NextApp: Render component with data
-    NextApp->>User: Display data
-    
-    User->>NextApp: Toggle data source/mode
-    NextApp->>Registry: Update fetcher
-    NextApp->>HOC: Re-render with new fetcher
-    
-    Note over HOC,Fetcher: Data fetching process repeats
-```
-
-### Component Structure
-```mermaid
-graph TD
-    subgraph "Client-Side Components"
-        App[Next.js App]
-        Page[Page Component]
-        ClientComp[Client Component]
-        ServerComp[Server Component]
-        ClientHOC[withClientFetching HOC]
-        ServerHOC[withServerFetching HOC]
-    end
-    
-    subgraph "Core Library"
-        Registry[FetcherRegistry]
-        BaseFetcher[BaseFetcher]
-        CustomFetcher[Custom Data Fetcher]
-        Toggle[Toggle Component]
-        ListRenderer[ListRenderer Component]
-    end
-    
-    subgraph "Server-Side Components"
-        APIRoute[API Route]
-        Middleware[CORS Middleware]
-    end
-    
-    subgraph "Data Sources"
-        JSONFile[(JSON Files)]
-        CSVFile[(CSV Files)]
-        TXTFile[(TXT Files)]
-        ExternalAPI[(External API)]
-    end
-    
-    %% Client-side flow
-    App --> Page
-    Page --> ClientComp
-    Page --> ServerComp
-    ClientComp --> ClientHOC
-    ServerComp --> ServerHOC
-    
-    %% Core library connections
-    ClientHOC --> Registry
-    ServerHOC --> Registry
-    Registry --> CustomFetcher
-    CustomFetcher --> BaseFetcher
-    
-    %% Server-side flow
-    ClientHOC -.-> |Client-side fetch| Middleware
-    ServerHOC -.-> |Server-side fetch| Middleware
-    Middleware --> APIRoute
-    
-    %% Data source connections
-    APIRoute --> JSONFile
-    APIRoute --> CSVFile
-    APIRoute --> TXTFile
-    CustomFetcher -.-> |API Fetch| ExternalAPI
-    
-    %% UI Components
-    Page --> Toggle
-    ClientHOC --> ListRenderer
-    ServerHOC --> ListRenderer
-    
-    %% Styling
-    classDef core fill:#f9f,stroke:#333,stroke-width:2px
-    classDef component fill:#bbf,stroke:#333,stroke-width:1px
-    classDef server fill:#bfb,stroke:#333,stroke-width:1px
-    classDef data fill:#fbb,stroke:#333,stroke-width:1px
-    
-    class Registry,BaseFetcher,CustomFetcher core
-    class App,Page,ClientComp,ServerComp,ClientHOC,ServerHOC,Toggle,ListRenderer component
-    class APIRoute,Middleware server
-    class JSONFile,CSVFile,TXTFile,ExternalAPI data
-```
-
+- 🔄 **Universal Data Fetching**: Works with both client and server components
+- 🚀 **React Server Components Support**: Optimized for Next.js App Router
+- 📊 **Multiple Data Sources**: JSON, CSV, TXT, and external APIs
+- 📱 **Responsive UI Components**: Ready-to-use data display components
+- 🔄 **Real-time Updates**: Built-in support for real-time data changes
+- 📄 **Pagination**: Built-in pagination support
+- 🧩 **Modular Architecture**: Easily extensible for custom data sources
+- 🔒 **Type Safety**: Written in TypeScript with full type definitions
 
 
 ## Installation
 
-```bash
+```shellscript
 npm install next-data-fetcher
 # or
 yarn add next-data-fetcher
@@ -143,81 +28,7 @@ yarn add next-data-fetcher
 pnpm add next-data-fetcher
 ```
 
-## Quick Start
-
-### 1. Setup API Route for Server-Side Data
-
-Create an API route to serve your data files:
-
-```typescript
-// app/api/data/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { DataSourceType } from 'next-data-fetcher';
-import fs from 'fs';
-import path from 'path';
-
-// Helper function that reads data from files (server-side only)
-async function fetchDataFromFile(componentId: string, dataSource: DataSourceType = 'json'): Promise<any[] | string> {
-  const extension = dataSource === 'json' ? 'json' : 
-                   dataSource === 'csv' ? 'csv' : 
-                   dataSource === 'txt' ? 'txt' : 'json';
-                   
-  const fileName = componentId.replace('Data', '').toLowerCase();
-  
-  try {
-    // Path to the data file
-    const filePath = path.join(process.cwd(), 'app', 'data', `${fileName}s.${extension}`);
-    
-    // Read file based on type
-    if (dataSource === 'json') {
-      const fileContent = fs.readFileSync(filePath, 'utf8');
-      return JSON.parse(fileContent);
-    } else if (dataSource === 'csv' || dataSource === 'txt') {
-      const fileContent = fs.readFileSync(filePath, 'utf8');
-      return fileContent; // Return raw content as string
-    }
-    
-    return [];
-  } catch (error) {
-    console.error(`Error reading ${extension} file for ${componentId}:`, error);
-    throw new Error(`Failed to read data file for ${componentId} with format ${extension}`);
-  }
-}
-
-export async function GET(request: NextRequest) {
-  // Get query parameters
-  const searchParams = request.nextUrl.searchParams;
-  const component = searchParams.get('component');
-  const dataSource = (searchParams.get('dataSource') || 'json') as DataSourceType;
-  
-  if (!component) {
-    return NextResponse.json({ error: 'Component parameter is required' }, { status: 400 });
-  }
-  
-  try {
-    // Now fetchDataFromFile is directly called from the API route
-    const data = await fetchDataFromFile(component, dataSource);
-    
-    // Return appropriate response based on data source
-    if (dataSource === 'json') {
-      return NextResponse.json(data);
-    } else if (dataSource === 'csv' || dataSource === 'txt') {
-      return new NextResponse(data as string, {
-        headers: {
-          'Content-Type': dataSource === 'csv' ? 'text/csv' : 'text/plain',
-        },
-      });
-    }
-    
-    return NextResponse.json({ error: 'Unsupported data source' }, { status: 400 });
-  } catch (error: any) {
-    console.error('API route error:', error);
-    return NextResponse.json({ error: error.message || 'Failed to fetch data' }, { status: 500 });
-  }
-}
-```
-
-### 2. Create a Middleware (Required)
+### Create a Middleware (Required)
 
 To handle CORS and API requests properly, create a middleware.ts file in your root directory:
 
@@ -243,63 +54,152 @@ export const config = {
 
 > **Important Note**: The middleware.ts file must be created or you'll receive an error: "Error: The Middleware "/middleware" must export a `middleware` or a `default` function".
 
-### 3. Create Your Data Fetcher
 
-Create a custom fetcher for your data model:
+## Quick Start
+
+### 1. Set up your data files
+
+Create data files in your project (e.g., in `app/data/`):
+
+```json
+// app/data/users.json
+[
+  {
+    "id": 1,
+    "name": "John Doe",
+    "email": "john@example.com"
+  },
+  {
+    "id": 2,
+    "name": "Jane Smith",
+    "email": "jane@example.com"
+  }
+]
+```
+
+### 2. Create API routes for data fetching
 
 ```typescript
-// fetchers/UserDataFetcher.ts
-import { BaseFetcher, DataSourceType } from "next-data-fetcher";
+// app/api/data/route.ts
+import { type NextRequest, NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
+
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  const component = searchParams.get("component");
+  const dataSource = searchParams.get("dataSource") || "json";
+  const page = Number.parseInt(searchParams.get("page") || "1", 10);
+  const limit = Number.parseInt(searchParams.get("limit") || "0", 10);
+
+  if (!component) {
+    return NextResponse.json({ error: "Component parameter is required" }, { status: 400 });
+  }
+
+  try {
+    // Read data from files based on component and dataSource
+    const fileName = component.replace("Data", "").toLowerCase();
+    const extension = dataSource === "json" ? "json" : dataSource === "csv" ? "csv" : "txt";
+    const filePath = path.join(process.cwd(), "app/data", `${fileName}s.${extension}`);
+
+    let data;
+    if (dataSource === "json") {
+      const fileContent = fs.readFileSync(filePath, "utf8");
+      data = JSON.parse(fileContent);
+    } else if (dataSource === "csv" || dataSource === "txt") {
+      const fileContent = fs.readFileSync(filePath, "utf8");
+      data = fileContent;
+    }
+
+    // Handle pagination
+    let paginatedData = data;
+    const totalItems = Array.isArray(data) ? data.length : 0;
+
+    if (limit > 0 && Array.isArray(data)) {
+      const startIndex = (page - 1) * limit;
+      paginatedData = data.slice(startIndex, startIndex + limit);
+    }
+
+    // Return appropriate response
+    if (dataSource === "json") {
+      return NextResponse.json({
+        data: paginatedData,
+        pagination: limit > 0
+          ? {
+              page,
+              limit,
+              totalItems,
+              totalPages: Math.ceil(totalItems / limit),
+            }
+          : null,
+      });
+    } else {
+      return new NextResponse(data, {
+        headers: {
+          "Content-Type": dataSource === "csv" ? "text/csv" : "text/plain",
+        },
+      });
+    }
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || "Failed to fetch data" }, { status: 500 });
+  }
+}
+```
+
+### 3. Create a data fetcher
+
+```typescript
+// app/fetchers/UserDataFetcher.ts
+import { BaseFetcher, type DataSourceType } from "next-data-fetcher";
 
 export interface User {
   id: number;
   name: string;
   email: string;
+  [key: string]: any; // Allow for dynamic fields
 }
 
 export class UserDataFetcher extends BaseFetcher<User> {
-  constructor(dataSource: DataSourceType = 'json') {
+  constructor(dataSource: DataSourceType = "json") {
     super({
-      componentId: 'UserData',
+      componentId: "UserData",
       dataSource,
-      endpoint: dataSource === 'api' ? 'https://your-api-endpoint.com/users' : undefined
+      endpoint: dataSource === "api" ? "https://jsonplaceholder.typicode.com/users" : undefined,
     });
   }
 
   parseData(data: any): User[] {
-    // Handle different data structures based on source
     if (Array.isArray(data)) {
-      return data.map(user => ({
-        id: typeof user.id === 'number' ? user.id : parseInt(user.id) || 0,
-        name: user.name || 'Unknown',
-        email: user.email || 'No email'
-      }));
+      return data.map((user) => {
+        // Create a base user object with required fields
+        const baseUser: User = {
+          id: typeof user.id === "number" ? user.id : Number.parseInt(user.id) || 0,
+          name: user.name || "Unknown",
+          email: user.email || "No email",
+        };
+
+        // Add any additional fields dynamically
+        for (const key in user) {
+          if (!baseUser.hasOwnProperty(key)) {
+            baseUser[key] = user[key];
+          }
+        }
+
+        return baseUser;
+      });
     }
-    
-    if (data.users && Array.isArray(data.users)) {
-      return data.users.map((user: any) => ({
-        id: typeof user.id === 'number' ? user.id : parseInt(user.id) || 0,
-        name: user.name || 'Unknown',
-        email: user.email || 'No email'
-      }));
-    }
-    
+
     return [];
   }
 }
 ```
 
-### 4. Create a Display Component
+### 4. Create a display component
 
-Create a component to display your data:
-
-```typescript
-// components/UserList.tsx
-'use client';
-
-import React from 'react';
-import { ListRenderer } from 'next-data-fetcher';
-import { User } from '../fetchers/UserDataFetcher';
+```typescriptreact
+// app/components/UserList.tsx
+import { DynamicListRenderer } from "next-data-fetcher";
+import type { User } from "../fetchers/UserDataFetcher";
 
 interface UserListProps {
   data?: User[];
@@ -307,281 +207,454 @@ interface UserListProps {
 
 export function UserList({ data = [] }: UserListProps) {
   return (
-    <ListRenderer
+    <DynamicListRenderer
       data={data}
       title="User List"
-      renderItem={(user) => (
-        <div className="user-card">
-          <h3>{user.name}</h3>
-          <p>Email: {user.email}</p>
-          <p>ID: {user.id}</p>
-        </div>
-      )}
+      priorityFields={["name", "email"]}
+      excludeFields={["_id"]}
+      itemsPerPage={5}
     />
   );
 }
 ```
 
-### 5. Set Up Your Page with Data Fetching
+### 5. Use in a server component
 
-Use the HOCs to add data fetching capabilities to your components:
+```typescriptreact
+// app/components/ServerUserList.tsx
+import { withServerFetching } from "next-data-fetcher";
+import { UserList } from "./UserList";
+import { UserDataFetcher } from "../fetchers/UserDataFetcher";
+import { FetcherRegistry } from "next-data-fetcher";
 
-```typescript
+// Register the fetcher (do this in a place that runs on the server)
+const registry = FetcherRegistry.getInstance();
+registry.register("UserData", new UserDataFetcher("json"));
+
+// Create a server component using withServerFetching
+const ServerUserList = withServerFetching(UserList, "UserData");
+
+export default ServerUserList;
+```
+
+### 6. Use in a client component
+
+```typescriptreact
+// app/components/ClientUserList.tsx
+"use client";
+
+import { withClientFetching } from "next-data-fetcher";
+import { UserList } from "./UserList";
+import { useEffect } from "react";
+import { UserDataFetcher } from "../fetchers/UserDataFetcher";
+import { FetcherRegistry } from "next-data-fetcher";
+
+// Create a client component using withClientFetching
+const ClientUserList = withClientFetching(UserList, "UserData");
+
+export function ClientUserListWrapper() {
+  useEffect(() => {
+    // Register the fetcher on the client
+    const registry = FetcherRegistry.getInstance();
+    registry.register("UserData", new UserDataFetcher("json"));
+  }, []);
+
+  return <ClientUserList />;
+}
+```
+
+### 7. Use in your page
+
+```typescriptreact
 // app/page.tsx
-'use client';
-
-import React, { useEffect, useState, useCallback } from 'react';
-import { UserList } from './components/UserList';
-import { 
-  withServerFetching, 
-  withClientFetching, 
-  FetcherRegistry,
-  DataSourceType, 
-  Toggle 
-} from 'next-data-fetcher';
-import { UserDataFetcher } from './fetchers/UserDataFetcher';
+import { Suspense } from "react";
+import ServerUserList from "./components/ServerUserList";
+import { ClientUserListWrapper } from "./components/ClientUserList";
 
 export default function Home() {
-  const [isServer, setIsServer] = useState<boolean>(true);
-  const [dataSource, setDataSource] = useState<DataSourceType>('json');
-  const [isInitialized, setIsInitialized] = useState<boolean>(false);
-  const [key, setKey] = useState<number>(0);
-
-  // Initialize fetchers on component mount
-  useEffect(() => {
-    const registry = FetcherRegistry.getInstance();
-    registry.register('UserData', new UserDataFetcher(dataSource));
-    setIsInitialized(true);
-  }, []);
-
-  // Update fetchers when dataSource changes
-  useEffect(() => {
-    if (!isInitialized) return;
-    
-    const registry = FetcherRegistry.getInstance();
-    registry.register('UserData', new UserDataFetcher(dataSource));
-    
-    // Force re-render of components by updating the key
-    setKey(prevKey => prevKey + 1);
-  }, [dataSource, isInitialized]);
-
-  const handleToggleMode = useCallback((server: boolean) => {
-    setIsServer(server);
-    // Force re-render when toggling between client and server
-    setKey(prevKey => prevKey + 1);
-  }, []);
-
-  const handleChangeDataSource = useCallback((source: DataSourceType) => {
-    setDataSource(source);
-  }, []);
-
-  // Only render content after initialization
-  if (!isInitialized) {
-    return <div>Initializing data fetchers...</div>;
-  }
-
-  // Create components with the current key to force re-creation when needed
-  const ServerUserList = withServerFetching(UserList, 'UserData');
-  const ClientUserList = withClientFetching(UserList, 'UserData');
-
   return (
-    <main className="container">
-      <h1>Next.js Data Fetching Example</h1>
+    <main className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-6">Next.js Data Fetcher Demo</h1>
       
-      <Toggle 
-        onToggleMode={handleToggleMode}
-        onChangeDataSource={handleChangeDataSource}
-        isServer={isServer}
-        dataSource={dataSource}
-      />
-      
-      <div className="content">
-        {isServer ? (
-          <ServerUserList key={`server-user-${key}`} />
-        ) : (
-          <ClientUserList key={`client-user-${key}`} />
-        )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Server-side Fetching</h2>
+          <Suspense fallback={<div>Loading server data...</div>}>
+            <ServerUserList />
+          </Suspense>
+        </div>
+        
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Client-side Fetching</h2>
+          <ClientUserListWrapper />
+        </div>
       </div>
     </main>
   );
 }
 ```
 
-### 6. Prepare Your Data Files
-
-Create a data directory in your app folder and add your data files:
-
-```
-app/
-├── data/
-│   ├── users.json
-│   ├── users.csv
-│   └── users.txt
-```
-
-Example JSON file (users.json):
-```json
-[
-  {"id": 1, "name": "John Doe", "email": "john@example.com"},
-  {"id": 2, "name": "Jane Smith", "email": "jane@example.com"},
-  {"id": 3, "name": "Bob Johnson", "email": "bob@example.com"}
-]
-```
-
 ## Advanced Usage
 
-### Custom Data Sources
+### Toggle Between Server and Client Fetching
 
-You can extend the `BaseFetcher` class to implement your own data sources:
+```typescriptreact
+"use client";
 
-```typescript
-export class CustomDataFetcher extends BaseFetcher<YourDataType> {
-  constructor() {
-    super({
-      componentId: 'CustomData',
-      dataSource: 'json', // or any other supported type
-    });
-  }
+import { useState, useEffect } from "react";
+import { Toggle, FetcherRegistry, DataSourceType } from "next-data-fetcher";
+import { UserDataFetcher } from "../fetchers/UserDataFetcher";
+import { Suspense } from "react";
+import ServerUserList from "./ServerUserList";
+import { ClientUserListWrapper } from "./ClientUserList";
 
-  parseData(data: any): YourDataType[] {
-    // Implement your custom parsing logic
-    return data.map(item => ({
-      // Map your data to your model
-    }));
-  }
+export default function ToggleExample() {
+  const [isServer, setIsServer] = useState(true);
+  const [dataSource, setDataSource] = useState<DataSourceType>("json");
   
-  // You can also override fetchData or other methods
-  async fetchData(isServer = false): Promise<YourDataType[]> {
-    // Custom fetching implementation
-    return super.fetchData(isServer);
-  }
+  useEffect(() => {
+    const registry = FetcherRegistry.getInstance();
+    registry.register("UserData", new UserDataFetcher(dataSource));
+  }, [dataSource]);
+  
+  return (
+    <div className="container mx-auto p-4">
+      <Toggle
+        onToggleMode={(server) => setIsServer(server)}
+        onChangeDataSource={(source) => setDataSource(source)}
+        isServer={isServer}
+        dataSource={dataSource}
+      />
+      
+      <div className="mt-6">
+        {isServer ? (
+          <Suspense fallback={<div>Loading server data...</div>}>
+            <ServerUserList />
+          </Suspense>
+        ) : (
+          <ClientUserListWrapper />
+        )}
+      </div>
+    </div>
+  );
 }
 ```
 
-### Using Environment Variables
+### Real-time Updates
 
-You can configure the base URL for your API endpoints using environment variables:
+To enable real-time updates, you need to set up an SSE (Server-Sent Events) endpoint:
 
+```typescript
+// app/api/sse/route.ts
+import { type NextRequest } from "next/server";
+import { v4 as uuidv4 } from "uuid";
+
+export async function GET(request: NextRequest) {
+  const clientId = uuidv4();
+  
+  const stream = new ReadableStream({
+    start(controller) {
+      // Send initial connection message
+      const initialData = `data: ${JSON.stringify({ type: "connected", clientId })}
+
+`;
+      controller.enqueue(new TextEncoder().encode(initialData));
+      
+      // Set up keep-alive interval
+      const keepAliveInterval = setInterval(() => {
+        try {
+          controller.enqueue(new TextEncoder().encode(`: keep-alive
+
+`));
+        } catch (error) {
+          clearInterval(keepAliveInterval);
+        }
+      }, 30000);
+      
+      // Handle client disconnect
+      request.signal.addEventListener("abort", () => {
+        clearInterval(keepAliveInterval);
+        console.log(`Client ${clientId} disconnected`);
+      });
+    },
+  });
+  
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-store, no-transform",
+      "Connection": "keep-alive",
+      "X-Accel-Buffering": "no",
+    },
+  });
+}
 ```
-# .env.local
-NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
+
+Then use the real-time features in your components:
+
+```typescriptreact
+"use client";
+
+import { useState } from "react";
+import { Toggle, useRealtimeUpdates } from "next-data-fetcher";
+import { ClientUserListWrapper } from "./ClientUserList";
+
+export default function RealtimeExample() {
+  const [isRealtime, setIsRealtime] = useState(false);
+  
+  // Subscribe to real-time updates
+  useRealtimeUpdates("UserData", () => {
+    console.log("Data updated!");
+    // Refresh your UI or fetch new data
+  });
+  
+  return (
+    <div>
+      <Toggle
+        onToggleRealtime={() => setIsRealtime(!isRealtime)}
+        isRealtime={isRealtime}
+        // ... other props
+      />
+      
+      <ClientUserListWrapper />
+    </div>
+  );
+}
 ```
-
-### Different Data Formats Support
-
-The library supports different data formats out of the box:
-
-1. **JSON**: Default format for structured data
-2. **CSV**: For tabular data
-3. **TXT**: For text-based data with simple parsing
-4. **API**: For external API endpoints
 
 ## API Reference
 
 ### Core Components
 
-#### BaseFetcher
+#### `BaseFetcher<T>`
 
-The abstract base class for all data fetchers.
+Abstract base class for data fetchers.
 
 ```typescript
-abstract class BaseFetcher<T> {
+class BaseFetcher<T> {
   constructor(options: FetcherOptions);
   abstract parseData(data: any): T[];
-  async fetchData(isServer?: boolean, componentId?: string): Promise<T[]>;
+  async fetchData(isServer?: boolean): Promise<{ data: T[]; totalItems?: number; totalPages?: number }>;
+  setPagination(page: number, limit: number, enabled?: boolean): void;
+  invalidateCache(): void;
+  publishDataChange(action: "create" | "update" | "delete" | "refresh", data?: any, id?: string | number): void;
 }
 ```
 
-#### FetcherRegistry
+#### `FetcherRegistry`
 
-A singleton registry for managing fetchers.
+Singleton registry for managing fetchers.
 
 ```typescript
 class FetcherRegistry {
   static getInstance(): FetcherRegistry;
   register(componentId: string, fetcher: BaseFetcher<any>): void;
   getFetcher(componentId: string): BaseFetcher<any> | undefined;
-  setApiBasePath(path: string): void;
-  getApiBasePath(): string;
-  setBaseUrl(url: string): void;
-  getBaseUrl(): string;
+  getDataUrl(componentId: string, dataSource?: DataSourceType): string;
 }
 ```
 
-### Higher-Order Components
+### Higher-Order Components (HOCs)
 
-#### withClientFetching
+#### `withServerFetching`
 
-HOC for adding client-side data fetching capabilities.
-
-```typescript
-function withClientFetching<T, P extends { data?: T[] }>(
-  WrappedComponent: React.ComponentType<P>,
-  componentId: string
-): React.FC<Omit<P, "data">>;
-```
-
-#### withServerFetching
-
-HOC for adding server-side data fetching capabilities.
+HOC for server-side data fetching.
 
 ```typescript
 function withServerFetching<T, P extends { data?: T[] }>(
   WrappedComponent: React.ComponentType<P>,
-  componentId: string
-): React.FC<Omit<P, "data">>;
+  componentId: string,
+  options?: { defaultItemsPerPage?: number }
+): React.ComponentType<Omit<P, "data">>;
+```
+
+#### `withClientFetching`
+
+HOC for client-side data fetching.
+
+```typescript
+function withClientFetching<T, P extends { data?: T[] }>(
+  WrappedComponent: React.ComponentType<P>,
+  componentId: string,
+  options?: WithClientFetchingOptions
+): React.ComponentType<Omit<P, "data">>;
 ```
 
 ### UI Components
 
-#### ListRenderer
+#### `DynamicListRenderer`
 
-A generic component for rendering lists.
+Renders a list of data with pagination.
 
 ```typescript
-function ListRenderer<T>({
+function DynamicListRenderer<T extends Record<string, any>>({
   data,
-  renderItem,
   title,
+  priorityFields,
+  excludeFields,
+  itemsPerPage,
+  virtualized,
   className,
   listClassName,
   itemClassName,
-}: ListRendererProps<T>): JSX.Element;
+}: DynamicListRendererProps<T>): JSX.Element;
 ```
 
-#### Toggle
+#### `DynamicDataDisplay`
 
-A component for toggling between server-side and client-side data fetching.
+Displays a single data item with expandable fields.
+
+```typescript
+function DynamicDataDisplay({
+  data,
+  excludeFields,
+  priorityFields,
+  className,
+}: DynamicDataDisplayProps): JSX.Element;
+```
+
+#### `Pagination`
+
+Pagination component with page navigation.
+
+```typescript
+function Pagination({
+  currentPage,
+  totalPages,
+  onPageChange,
+  itemsPerPage,
+  onItemsPerPageChange,
+  totalItems,
+  showItemsPerPage,
+  className,
+}: PaginationProps): JSX.Element;
+```
+
+#### `Toggle`
+
+Toggle component for switching between modes.
 
 ```typescript
 function Toggle({
   onToggleMode,
   onChangeDataSource,
+  onRefresh,
   isServer,
   dataSource,
+  isRealtime,
+  onToggleRealtime,
+  className,
 }: ToggleProps): JSX.Element;
+```
+
+### Hooks
+
+#### `useRealtimeUpdates`
+
+Hook for subscribing to real-time updates.
+
+```typescript
+function useRealtimeUpdates(componentId: string, onUpdate: () => void): void;
+```
+
+## Best Practices
+
+### Server Components
+
+1. **Always wrap server components with Suspense**:
+
+```typescriptreact
+<Suspense fallback={<div>Loading...</div>}>
+  <ServerComponent />
+</Suspense>
+```
+
+
+2. **Register fetchers early in the component tree**:
+
+```typescriptreact
+// In a layout or at the top of your component tree
+const registry = FetcherRegistry.getInstance();
+registry.register("UserData", new UserDataFetcher());
+```
+
+
+3. **Use the cache function for data fetching**:
+The package uses React's `cache` function internally to memoize data fetching in server components.
+
+
+### Client Components
+
+1. **Register fetchers in useEffect**:
+
+```typescriptreact
+useEffect(() => {
+  const registry = FetcherRegistry.getInstance();
+  registry.register("UserData", new UserDataFetcher());
+}, []);
+```
+
+
+2. **Handle loading and error states**:
+The `withClientFetching` HOC provides built-in loading and error states.
+3. **Use keys for forcing re-renders**:
+
+```typescriptreact
+<ClientUserList key={`client-user-${dataSource}`} />
+```
+
+
+
+
+## Environment Variables
+
+Set these environment variables for optimal functionality:
+
+```plaintext
+NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
+NEXT_PUBLIC_RAPIDAPI_KEY=your-rapidapi-key (optional)
+NEXT_PUBLIC_RAPIDAPI_HOST=your-rapidapi-host (optional)
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Middleware Error**
-   
-   Error: "The Middleware "/middleware" must export a `middleware` or a `default` function"
-   
-   Solution: Make sure you have created the middleware.ts file in your project root as shown in the setup instructions.
+#### "A component was suspended by an uncached promise"
 
-2. **Data Files Not Found**
-   
-   Error: "Failed to read data file for [componentId] with format [extension]"
-   
-   Solution: Ensure your data files are in the correct location (app/data/) and named correctly (lowercase component name without 'Data' + 's' + extension).
+This error occurs when using server components without proper Suspense boundaries.
 
-3. **CORS Issues**
-   
-   If you're experiencing CORS issues, make sure the middleware is properly configured to handle CORS headers.
+**Solution**:
+
+1. Wrap server components with Suspense
+2. Make sure you're using the latest version of next-data-fetcher
+3. Don't dynamically import server components in client components
+
+
+#### "No fetcher registered for component"
+
+This error occurs when trying to use a component before registering its fetcher.
+
+**Solution**:
+
+1. Make sure you register fetchers before using components
+2. Check component IDs for typos
+3. Verify that registration code is running on both client and server as needed
+
+
+#### Data not updating in real-time
+
+**Solution**:
+
+1. Ensure SSE endpoint is set up correctly
+2. Check that you're using `useRealtimeUpdates` hook
+3. Verify that `publishDataChange` is called when data changes
+
 
 ## License
 
-MIT
+MIT © [Your Name]
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
